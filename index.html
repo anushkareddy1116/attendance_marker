@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RollCall — Attendance Scanner & Pass Directory</title>
+    <!-- Modern Plus Jakarta Sans & Inter Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Feather Icons for a premium designer look -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar -->
+        <aside class="app-sidebar">
+            <div class="sidebar-header">
+                <div class="logo-wrapper">
+                    <div class="logo-square">
+                        <i data-feather="check-square" class="logo-icon"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h2>RollCall</h2>
+                        <span>Attendance Hub</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" id="nav-scanner" onclick="switchTab('scanner')">
+                    <i data-feather="video" class="nav-icon"></i>
+                    <span>Scan Terminal</span>
+                </button>
+                <button class="nav-item" id="nav-generator" onclick="switchTab('generator')">
+                    <i data-feather="user-plus" class="nav-icon"></i>
+                    <span>Pass Register</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection-pill offline" id="server-status-pill">
+                    <div class="status-dot"></div>
+                    <span id="server-status-text">Connecting...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard View -->
+        <div class="app-body">
+            <!-- Header bar -->
+            <header class="app-header">
+                <div class="header-title-area">
+                    <h1 id="view-title">Scan Terminal</h1>
+                    <span id="view-subtitle" class="text-secondary">Capture real-time student check-ins</span>
+                </div>
+                <div class="header-actions">
+                    <div class="date-display">
+                        <i data-feather="calendar"></i>
+                        <span id="live-clock">Loading date...</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content Container -->
+            <div class="dashboard-viewport">
+
+                <!-- TAB: SCANNER -->
+                <section id="tab-scanner" class="tab-content active">
+                    <!-- Key metrics row -->
+                    <div class="metrics-row">
+                        <div class="metric-card">
+                            <div class="metric-meta">
+                                <span class="metric-label">Total Check-ins</span>
+                                <i data-feather="bar-chart-2" class="metric-icon"></i>
+                            </div>
+                            <div class="metric-value" id="metric-total">0</div>
+                            <div class="metric-desc">Total logs captured this session</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-meta">
+                                <span class="metric-label">Unique Students</span>
+                                <i data-feather="users" class="metric-icon"></i>
+                            </div>
+                            <div class="metric-value" id="metric-unique">0</div>
+                            <div class="metric-desc">Distinct students marked present</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-meta">
+                                <span class="metric-label">Last Activity</span>
+                                <i data-feather="clock" class="metric-icon"></i>
+                            </div>
+                            <div class="metric-value mono" id="metric-last">--:--:--</div>
+                            <div class="metric-desc">Time of latest verified scan</div>
+                        </div>
+                    </div>
+
+                    <!-- Main grid (Viewport & Logs) -->
+                    <div class="two-column-grid">
+                        <!-- Left column: Scanner Port -->
+                        <div class="card terminal-card">
+                            <div class="card-header">
+                                <div class="card-header-info">
+                                    <h3>Camera Input</h3>
+                                    <p>Select input camera to scan QR codes</p>
+                                </div>
+                                <div class="camera-actions">
+                                    <select id="camera-select" class="form-select">
+                                        <option value="">Detecting sources...</option>
+                                    </select>
+                                    <button id="camera-toggle-btn" class="btn btn-icon btn-outline" title="Toggle camera feed">
+                                        <i data-feather="power"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="video-port-wrapper">
+                                <video id="webcam-preview" autoplay playsinline muted></video>
+                                <canvas id="webcam-canvas" style="display: none;"></canvas>
+                                
+                                <!-- Scanner Reticle -->
+                                <div class="scanner-viewfinder" id="scanner-viewfinder">
+                                    <div class="viewfinder-corner tl"></div>
+                                    <div class="viewfinder-corner tr"></div>
+                                    <div class="viewfinder-corner bl"></div>
+                                    <div class="viewfinder-corner br"></div>
+                                    <div class="viewfinder-pulse"></div>
+                                </div>
+
+                                <div class="video-port-fallback" id="camera-fallback-msg">
+                                    <i data-feather="video-off"></i>
+                                    <p>Camera feed disabled</p>
+                                    <button class="btn btn-primary" onclick="initWebcam()">Enable Camera</button>
+                                </div>
+                            </div>
+
+                            <!-- Success scan card slider -->
+                            <div class="scan-notification" id="scan-feedback-alert">
+                                <div class="scan-notification-status">
+                                    <i data-feather="check-circle"></i>
+                                </div>
+                                <div class="scan-notification-body">
+                                    <h4 id="feedback-name">John Doe</h4>
+                                    <p>Verified present at <span id="feedback-time">12:34:56</span></p>
+                                    <span class="badge badge-mono" id="feedback-id">ID: 00000</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right column: Database Registry -->
+                        <div class="card logs-card">
+                            <div class="card-header">
+                                <div class="card-header-info">
+                                    <h3>Attendance Records</h3>
+                                    <p>Active logs for current classroom run</p>
+                                </div>
+                                <div class="card-header-actions">
+                                    <button class="btn btn-outline btn-sm text-red" onclick="clearLogs()">
+                                        <i data-feather="trash-2"></i> Clear
+                                    </button>
+                                    <button class="btn btn-outline btn-sm" onclick="exportCSV()">
+                                        <i data-feather="file-text"></i> CSV
+                                    </button>
+                                    <button class="btn btn-primary btn-sm" onclick="exportExcel()">
+                                        <i data-feather="download"></i> Excel Export
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="table-container">
+                                <table class="data-table" id="attendance-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>ID Number</th>
+                                            <th>Department</th>
+                                            <th>Timestamp</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="attendance-tbody">
+                                        <tr class="table-empty-state">
+                                            <td colspan="5">
+                                                <div class="empty-state-wrapper">
+                                                    <i data-feather="inbox"></i>
+                                                    <p>Classroom register is empty. Hold QR pass to camera to mark attendance.</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Manual Override Drawer style -->
+                            <div class="manual-override-panel">
+                                <h3>Manual Override</h3>
+                                <p>Register attendance manually if student QR pass is damaged or unreadable</p>
+                                <form id="manual-form" class="inline-form" onsubmit="handleManualAttendance(event)">
+                                    <div class="form-row">
+                                        <input type="text" id="manual-id" placeholder="Student ID" required class="form-input">
+                                        <input type="text" id="manual-name" placeholder="Full Name" required class="form-input">
+                                        <input type="text" id="manual-dept" placeholder="Department" required class="form-input">
+                                        <button type="submit" class="btn btn-primary">Mark Present</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB: GENERATOR -->
+                <section id="tab-generator" class="tab-content">
+                    <div class="two-column-grid">
+                        <!-- Left Column: Form Details -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-header-info">
+                                    <h3>Student Directory Registration</h3>
+                                    <p>Input details below to generate their customized student pass card</p>
+                                </div>
+                            </div>
+                            
+                            <form id="qr-form" class="grid-form" onsubmit="generateStudentQR(event)">
+                                <div class="form-grid-row">
+                                    <div class="form-group">
+                                        <label for="student-id" class="form-label">Student ID Number <span class="text-red">*</span></label>
+                                        <input type="text" id="student-id" placeholder="e.g. CS-2026-042" required class="form-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-name" class="form-label">Full Name <span class="text-red">*</span></label>
+                                        <input type="text" id="student-name" placeholder="e.g. Anushka Sharma" required class="form-input">
+                                    </div>
+                                </div>
+                                <div class="form-grid-row">
+                                    <div class="form-group">
+                                        <label for="student-dept" class="form-label">Academic Department <span class="text-red">*</span></label>
+                                        <input type="text" id="student-dept" placeholder="e.g. Computer Science" required class="form-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-email" class="form-label">Email Address</label>
+                                        <input type="email" id="student-email" placeholder="e.g. anushka@univ.edu" class="form-input">
+                                    </div>
+                                </div>
+                                <div class="form-footer-actions">
+                                    <button type="button" class="btn btn-outline" onclick="resetGeneratorForm()">Reset Fields</button>
+                                    <button type="submit" class="btn btn-primary">Create Student Pass</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Right Column: Card Preview -->
+                        <div class="card preview-card-panel">
+                            <div class="card-header">
+                                <div class="card-header-info">
+                                    <h3>ID Badge Preview</h3>
+                                    <p>Generate card, then print or save the QR code pass</p>
+                                </div>
+                            </div>
+
+                            <div class="student-card-stage">
+                                <!-- Modern Minimalist Premium Badge Card Design -->
+                                <div class="premium-badge-card" id="student-card-element">
+                                    <div class="badge-bg-pattern"></div>
+                                    <div class="badge-body">
+                                        <div class="badge-brand">
+                                            <div class="brand-accent-line"></div>
+                                            <div class="brand-names">
+                                                <h4>UNIVERSITY REGISTER</h4>
+                                                <span>OFFICIAL PASS</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="badge-qr-box">
+                                            <div id="qrcode-canvas-container">
+                                                <div class="qr-placeholder">
+                                                    <i data-feather="qr-code" class="placeholder-qr-icon"></i>
+                                                    <span>Awaiting data entry</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="badge-student-meta">
+                                            <h2 id="card-student-name">STUDENT NAME</h2>
+                                            <div class="badge-meta-row">
+                                                <div class="meta-col">
+                                                    <span>STUDENT ID</span>
+                                                    <strong id="card-student-id">-- --- --</strong>
+                                                </div>
+                                                <div class="meta-col">
+                                                    <span>DEPARTMENT</span>
+                                                    <strong id="card-student-dept">-----------</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="badge-footer">
+                                        <div class="badge-secure-status">
+                                            <div class="status-circle"></div>
+                                            <span>VERIFIED ACTIVE</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="badge-action-bar">
+                                <button class="btn btn-success w-full" id="download-qr-btn" disabled onclick="downloadCardImage()">
+                                    <i data-feather="download"></i> Download Pass (PNG)
+                                </button>
+                                <button class="btn btn-outline w-full" id="print-qr-btn" disabled onclick="printCard()">
+                                    <i data-feather="printer"></i> Print Pass Card
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating System Toast -->
+    <div id="toast" class="system-toast">
+        <i data-feather="info" class="toast-feather-icon" id="toast-icon"></i>
+        <div class="toast-content">
+            <span class="toast-title" id="toast-title">Notification</span>
+            <p class="toast-desc" id="toast-desc">Details updated</p>
+        </div>
+    </div>
+
+    <!-- Offline vendors -->
+    <script src="libs/qrcode.min.js"></script>
+    <script src="libs/jsQR.js"></script>
+    <script src="libs/xlsx.full.min.js"></script>
+    <script src="libs/html2canvas.min.js"></script>
+    <!-- App Main Script -->
+    <script src="app.js"></script>
+    <script>
+        // Init feather icons
+        feather.replace();
+    </script>
+</body>
+</html>
